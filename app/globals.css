@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Design tokens ported from the original app's :root custom properties. Tailwind
+   v4's @theme block is CSS-variable-native, so these translate almost unchanged
+   instead of needing a separate JS config object. */
+@theme {
+  --color-bg-0: #0b0b10;
+  --color-panel: rgba(22, 22, 29, 0.66);
+  --color-panel-strong: rgba(26, 26, 34, 0.86);
+  --color-panel-border: rgba(255, 255, 255, 0.08);
+  --color-panel-border-soft: rgba(255, 255, 255, 0.05);
+  --color-sidebar-bg: rgba(15, 15, 20, 0.5);
+  --color-sheet-bg: #1a1a22;
+  --color-hover: rgba(255, 255, 255, 0.055);
+  --color-active: rgba(255, 255, 255, 0.09);
+  --color-text-1: #f2f2f6;
+  --color-text-2: #a8a8b3;
+  --color-text-3: #74747f;
+  --color-accent: #8b6cf6;
+  --color-accent-2: #a78bfa;
+  --color-accent-strong: #7c5cf0;
+  --color-accent-soft: rgba(139, 108, 246, 0.16);
+  --color-accent-soft-border: rgba(139, 108, 246, 0.35);
+  --color-danger: #f0576c;
+  --color-danger-soft: rgba(240, 87, 108, 0.14);
+  --color-success: #34d399;
+  --color-success-soft: rgba(52, 211, 153, 0.14);
+  --color-warn: #f5b942;
+  --color-warn-soft: rgba(245, 185, 66, 0.13);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-hanken-grotesk), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-brand: var(--font-story-script), var(--font-ibarra-real-nova), Georgia, serif;
+  --font-serif: var(--font-ibarra-real-nova), Georgia, serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --animate-turn-pulse: turnPulse 1.1s ease-in-out infinite;
+  --animate-spin-slow: spin 0.8s linear infinite;
+  --animate-message-in: messageIn 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+
+  @keyframes turnPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes messageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
   }
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-bg-0);
+  color: var(--color-text-1);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.5;
+  font-feature-settings: "cv05", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Blurred gradient backdrop behind the floating glass panel — zero external image
+   dependency, matching the original's approach exactly. */
+.bg-blur-backdrop {
+  position: fixed;
+  inset: -10%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 45% at 18% 15%, rgba(139, 108, 246, 0.55), transparent 60%),
+    radial-gradient(ellipse 50% 45% at 85% 10%, rgba(236, 130, 180, 0.32), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 80% 85%, rgba(69, 100, 220, 0.4), transparent 65%),
+    radial-gradient(ellipse 50% 50% at 10% 90%, rgba(60, 190, 200, 0.22), transparent 60%),
+    linear-gradient(160deg, #14121c 0%, #0c0c12 55%, #0a0a0e 100%);
+  filter: blur(60px) saturate(130%);
+}
+
+/* Fine film-grain noise for translucent/blurred overlay scrims — flat blur alone
+   reads a bit dead; a faint turbulence texture blended with `overlay` gives it the
+   tactile look real glass surfaces have.
+   Deliberately NOT setting `position: relative` here (as a prior version of this
+   rule did) — this class is defined after Tailwind's generated utilities in the
+   compiled stylesheet, so at equal specificity it was winning the cascade over a
+   `fixed`/`absolute` utility class on the same element, silently downgrading it to
+   `relative` and breaking every full-viewport overlay that also used this class
+   (confirmed: this is exactly what turned the modal sheets and the mobile sidebar
+   scrim into normal in-flow boxes instead of viewport-covering overlays). Both
+   current usages already have their own `fixed` positioning, which already
+   provides a valid containing block for the ::after pseudo-element below. */
+.noise-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* Markdown content styling for assistant messages — ported from the original's
+   .bubble rules. Plain CSS rather than a Tailwind typography plugin, since these
+   are the exact same handful of element rules the original already had tuned. */
+.prose-chat > :first-child { margin-top: 0; }
+.prose-chat > :last-child { margin-bottom: 0; }
+.prose-chat p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.prose-chat ul, .prose-chat ol { margin: 0 0 10px; padding-left: 22px; }
+.prose-chat li { margin-bottom: 4px; overflow-wrap: anywhere; }
+/* `anywhere`, not the more common `break-word` — an inline code span with no
+   natural break point (a long identifier, a bracket-heavy expression) needs to
+   be allowed to split mid-token, or it forces the whole scroll container into
+   `overflow-x: auto` (a real CSS quirk: setting overflow-y alone still computes
+   overflow-x to `auto` on that same box), which is what put a horizontal
+   scrollbar under every message instead of just wrapping the long code. */
+.prose-chat code { background: rgba(255, 255, 255, 0.08); padding: 2px 5px; border-radius: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.prose-chat pre { background: rgba(0, 0, 0, 0.28); border: 1px solid var(--color-panel-border-soft); padding: 12px; border-radius: 10px; overflow-x: auto; margin: 0 0 10px; }
+.prose-chat pre code { background: none; padding: 0; }
+.prose-chat table { border-collapse: collapse; margin: 0 0 10px; font-size: 13px; }
+.prose-chat th, .prose-chat td { border: 1px solid var(--color-panel-border); padding: 5px 9px; text-align: left; }
+.prose-chat th { background: rgba(255, 255, 255, 0.04); }
+.prose-chat a { color: var(--color-accent-2); }
+
+/* On an empty conversation the input starts vertically centered (via a JS-computed
+   translateY, see useLandingCentering) and eases down to its normal bottom
+   position the moment the first message lands. */
+.input-ease {
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+mark.match {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-2);
+  border-radius: 3px;
+  padding: 0 1px;
 }
